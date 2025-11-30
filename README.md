@@ -22,7 +22,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Acesse: **http://localhost:3500**
+Acesse: **http://localhost:5500**
 
 ## 📊 Funcionalidades
 

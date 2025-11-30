@@ -23,7 +23,9 @@ system_state = {
     'running': False,
     'current_temp': 22.0,
     'current_power': 50.0,
-    'alerts': []
+    'alerts': [],
+    'mqtt_messages': [],
+    'message_count': 0
 }
 
 @app.route('/')
@@ -57,13 +59,26 @@ def calculate():
         system_state['current_power'] = potencia_crac
         
         # Envia para MQTT
-        mqtt_client.publish_control_data({
+        mqtt_data = {
             'erro': erro,
             'delta_erro': delta_erro,
             'temp_externa': temp_externa,
             'carga_termica': carga_termica,
-            'potencia_crac': potencia_crac
+            'potencia_crac': potencia_crac,
+            'timestamp': time.time()
+        }
+        mqtt_client.publish_control_data(mqtt_data)
+        
+        # Armazena mensagem no histórico
+        system_state['mqtt_messages'].append({
+            'topic': 'datacenter/fuzzy/control',
+            'data': mqtt_data,
+            'timestamp': time.time()
         })
+        system_state['message_count'] += 1
+        # Mantém apenas últimas 50 mensagens
+        if len(system_state['mqtt_messages']) > 50:
+            system_state['mqtt_messages'] = system_state['mqtt_messages'][-50:]
         
         return jsonify({
             'success': True,
@@ -156,6 +171,14 @@ def get_alerts():
         'alerts': system_state['alerts'][-10:]  # Últimos 10 alertas
     })
 
+@app.route('/api/mqtt/messages', methods=['GET'])
+def get_mqtt_messages():
+    """Retorna últimas mensagens MQTT"""
+    return jsonify({
+        'messages': system_state['mqtt_messages'][-20:],  # Últimas 20 mensagens
+        'total_count': system_state['message_count']
+    })
+
 def check_alerts(temp, power):
     """Verifica condições de alerta"""
     alerts = []
@@ -201,14 +224,19 @@ if __name__ == '__main__':
     print("📡 Conectando ao broker MQTT...")
     
     # Tenta conectar ao MQTT (modo simulação se falhar)
-    try:
-        mqtt_client.connect()
-        print("✅ MQTT conectado com sucesso!")
-    except:
-        print("⚠️  MQTT em modo simulação (broker não disponível)")
+    mqtt_ok = mqtt_client.connect()
     
-    print("\n🌐 Acesse: http://localhost:3500")
-    print("📊 Dashboard MQTT: http://localhost:3500/mqtt_dashboard")
+    if mqtt_ok:
+        print("✅ MQTT conectado com sucesso!")
+        print(f"   Broker: {mqtt_client.broker}:{mqtt_client.port}")
+    else:
+        print("⚠️  MQTT em modo simulação (broker não disponível)")
+        print("   Para ativar MQTT:")
+        print("   1. sudo systemctl start mosquitto")
+        print("   2. Reinicie o servidor")
+    
+    print("\n🌐 Acesse: http://localhost:5500")
+    print("📊 Dashboard MQTT: http://localhost:5500/mqtt_dashboard")
     print("\n" + "=" * 60 + "\n")
     
-    app.run(debug=False, host='0.0.0.0', port=3500, threaded=True)
+    app.run(debug=False, host='0.0.0.0', port=5500, threaded=True)

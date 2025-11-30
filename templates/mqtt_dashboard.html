@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>📡 Dashboard MQTT - Monitoramento em Tempo Real</h1>
-            <p>Broker: broker.hivemq.com | Tópicos: datacenter/fuzzy/*</p>
+            <p>Broker: localhost:1883 | Tópicos: datacenter/fuzzy/*</p>
         </header>
 
         <nav class="nav-buttons">
@@ -45,12 +45,7 @@
 
             <!-- Últimas Mensagens -->
             <section class="card">
-                <h2>📨 Últimas Mensagens MQTT</h2>
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="showMqttTab('control')">Controle</button>
-                    <button class="tab-btn" onclick="showMqttTab('temp')">Temperatura</button>
-                    <button class="tab-btn" onclick="showMqttTab('alert')">Alertas</button>
-                </div>
+                <h2>📨 Últimas Mensagens MQTT (Tempo Real)</h2>
                 <div id="mqtt-messages" class="message-container">
                     <p class="text-muted">Aguardando mensagens...</p>
                 </div>
