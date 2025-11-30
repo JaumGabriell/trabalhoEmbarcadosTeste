@@ -93,6 +93,13 @@ class FuzzyController:
         """
         Calcula a saída crisp do controlador fuzzy
         """
+        # SATURAÇÃO: Limita valores extremos aos ranges das funções de pertinência
+        # Isso garante que valores muito altos/baixos sejam tratados como os extremos válidos
+        erro = np.clip(erro, -10, 10)              # Erro: -10 a +10°C
+        delta_erro = np.clip(delta_erro, -5, 5)    # Delta: -5 a +5
+        temp_externa = np.clip(temp_externa, 10, 35)  # Temp Externa: 10 a 35°C
+        carga_termica = np.clip(carga_termica, 0, 100)  # Carga: 0 a 100%
+        
         # 1. Fuzzificação
         fuzzy_inputs = self.fuzzification(
             erro, delta_erro, temp_externa, carga_termica
