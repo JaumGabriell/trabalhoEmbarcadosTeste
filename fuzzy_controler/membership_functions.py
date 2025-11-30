@@ -26,15 +26,15 @@ class MembershipFunctions:
     def _define_membership_functions(self):
         """Define todas as funções de pertinência"""
         
-        # ERRO DE TEMPERATURA
+        # ERRO DE TEMPERATURA (ajustado para melhor cobertura)
         self.erro_mf = {
-            'NB': lambda x: self._trapmf(x, [-10, -10, -8, -4]),     # Negativo Grande
-            'NM': lambda x: self._trimf(x, [-8, -4, -2]),            # Negativo Médio
-            'NS': lambda x: self._trimf(x, [-4, -2, 0]),             # Negativo Pequeno
-            'ZE': lambda x: self._trimf(x, [-2, 0, 2]),              # Zero
-            'PS': lambda x: self._trimf(x, [0, 2, 4]),               # Positivo Pequeno
-            'PM': lambda x: self._trimf(x, [2, 4, 8]),               # Positivo Médio
-            'PB': lambda x: self._trapmf(x, [4, 8, 10, 10])          # Positivo Grande
+            'NB': lambda x: self._trapmf(x, [-10, -10, -6, -3]),     # Negativo Grande: < -3°C
+            'NM': lambda x: self._trimf(x, [-5, -3, -1.5]),          # Negativo Médio: -5 a -1.5°C
+            'NS': lambda x: self._trimf(x, [-2.5, -1, 0]),           # Negativo Pequeno: -2.5 a 0°C
+            'ZE': lambda x: self._trimf(x, [-1, 0, 1]),              # Zero: -1 a +1°C
+            'PS': lambda x: self._trimf(x, [0, 1.5, 3]),             # Positivo Pequeno: 0 a +3°C
+            'PM': lambda x: self._trimf(x, [2, 4, 6]),               # Positivo Médio: +2 a +6°C
+            'PB': lambda x: self._trapmf(x, [5, 7, 10, 10])          # Positivo Grande: > +5°C
         }
         
         # DELTA ERRO
@@ -62,13 +62,13 @@ class MembershipFunctions:
             'Alta': lambda x: self._trapmf(x, [60, 80, 100, 100])
         }
         
-        # POTÊNCIA CRAC (SAÍDA)
+        # POTÊNCIA CRAC (SAÍDA) - REDISTRIBUÍDA para melhor cobertura
         self.potencia_crac_mf = {
-            'MB': lambda x: self._trapmf(x, [0, 0, 10, 25]),         # Muito Baixa
-            'B': lambda x: self._trimf(x, [15, 30, 45]),             # Baixa
-            'M': lambda x: self._trimf(x, [35, 50, 65]),             # Média
-            'A': lambda x: self._trimf(x, [55, 70, 85]),             # Alta
-            'MA': lambda x: self._trapmf(x, [75, 90, 100, 100])      # Muito Alta
+            'MB': lambda x: self._trapmf(x, [0, 0, 5, 15]),          # Muito Baixa: 0-15%
+            'B': lambda x: self._trimf(x, [10, 25, 40]),             # Baixa: 10-40%
+            'M': lambda x: self._trimf(x, [30, 50, 70]),             # Média: 30-70%
+            'A': lambda x: self._trimf(x, [60, 75, 90]),             # Alta: 60-90%
+            'MA': lambda x: self._trapmf(x, [85, 95, 100, 100])      # Muito Alta: 85-100%
         }
     
     def _trimf(self, x, params):
@@ -96,13 +96,13 @@ class MembershipFunctions:
                                           (d - x) / (d - c + 1e-10)), 0)
             return result
         else:
-            if x <= a or x >= d:
+            if x < a or x > d:  # CORRIGIDO: <= para < e >= para >
                 return 0.0
-            elif a < x < b:
+            elif a <= x < b:
                 return (x - a) / (b - a + 1e-10)
             elif b <= x <= c:
                 return 1.0
-            else:
+            else:  # c < x <= d
                 return (d - x) / (d - c + 1e-10)
     
     def get_membership(self, variable, term, value):

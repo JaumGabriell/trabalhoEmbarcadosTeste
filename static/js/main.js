@@ -49,7 +49,7 @@ async function calculate() {
         
         if (result.success) {
             displayOutput(result.potencia_crac);
-            displayInferenceDetails(result.inference_details);
+            // displayInferenceDetails removido - seção de inferência foi substituída por gráficos
         } else {
             alert('Erro no cálculo: ' + result.error);
         }
@@ -129,8 +129,6 @@ function resetInputs() {
     document.getElementById('carga_termica').value = 40;
     document.getElementById('output-value').textContent = '--';
     document.getElementById('power-bar-fill').style.width = '0%';
-    document.getElementById('inference-details').innerHTML = 
-        '<p class="text-muted">Execute o cálculo para ver os detalhes da inferência</p>';
 }
 
 // Executa simulação de 24h
@@ -138,6 +136,10 @@ async function runSimulation() {
     const temp_inicial = parseFloat(document.getElementById('sim_temp_inicial').value);
     const temp_externa = parseFloat(document.getElementById('sim_temp_externa').value);
     const carga_base = parseFloat(document.getElementById('sim_carga_base').value);
+    
+    // Oculta o preview
+    const preview = document.getElementById('simulation-preview');
+    if (preview) preview.style.display = 'none';
     
     // Mostra loading com mensagem
     document.getElementById('simulation-results').innerHTML = `
@@ -206,7 +208,7 @@ async function runSimulation() {
 
 // Exibe resultados da simulação
 function displaySimulationResults(results, metrics) {
-    // Primeiro cria a estrutura HTML
+    // Cria a estrutura HTML com os 4 gráficos
     document.getElementById('simulation-results').innerHTML = `
         <div class="metrics-grid">
             <div class="metric">
@@ -226,11 +228,38 @@ function displaySimulationResults(results, metrics) {
                 <div class="metric-label">Energia Total</div>
             </div>
         </div>
-        <div class="chart-container">
-            <canvas id="simulationChart"></canvas>
+        
+        <div class="simulation-charts-grid">
+            <div class="chart-box">
+                <h3>📊 Temperatura Atual vs Setpoint</h3>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="tempComparisonChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3>❄️ Potência de Refrigeração (PCRAC)</h3>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="powerChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3>📈 Erro de Temperatura (T_atual - Setpoint)</h3>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="errorChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3>🌡️ Temperatura de Saída ao Longo do Tempo</h3>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="tempOutputChart"></canvas>
+                </div>
+            </div>
         </div>
     `;
     
-    // Plota gráfico
+    // Plota os 4 gráficos
     plotSimulationChart(results);
 }

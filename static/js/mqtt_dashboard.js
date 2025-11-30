@@ -106,17 +106,17 @@ function displayMqttMessages(messages) {
             const data = msg.data;
             
             html += `
-                <div class="message-item" style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #f9f9f9;">
-                    <div class="message-header" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;">
-                        <span class="message-time" style="color: #666; font-size: 0.9em;">🕐 ${time}</span>
-                        <span class="message-topic" style="color: #2196F3; font-weight: bold; margin-left: 15px;">📡 ${msg.topic}</span>
+                <div class="message-item">
+                    <div class="message-header">
+                        <span class="message-time">🕐 ${time}</span>
+                        <span class="message-topic">📡 ${msg.topic}</span>
                     </div>
-                    <div class="message-data" style="font-size: 0.95em; line-height: 1.6;">
-                        <strong>Erro:</strong> ${data.erro?.toFixed(2) || 'N/A'}°C | 
-                        <strong>ΔErro:</strong> ${data.delta_erro?.toFixed(2) || 'N/A'} | 
-                        <strong>Temp Ext:</strong> ${data.temp_externa?.toFixed(1) || 'N/A'}°C | 
-                        <strong>Carga:</strong> ${data.carga_termica?.toFixed(0) || 'N/A'}%<br>
-                        <strong style="color: #4CAF50;">🎯 Potência CRAC:</strong> <span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold;">${data.potencia_crac?.toFixed(2) || 'N/A'}%</span>
+                    <div class="message-data">
+                        <strong style="color: #f59e0b;">Erro:</strong> <span style="color: #e2e8f0;">${data.erro?.toFixed(2) || 'N/A'}°C</span> | 
+                        <strong style="color: #60a5fa;">ΔErro:</strong> <span style="color: #e2e8f0;">${data.delta_erro?.toFixed(2) || 'N/A'}</span> | 
+                        <strong style="color: #8b5cf6;">Temp Ext:</strong> <span style="color: #e2e8f0;">${data.temp_externa?.toFixed(1) || 'N/A'}°C</span> | 
+                        <strong style="color: #ec4899;">Carga:</strong> <span style="color: #e2e8f0;">${data.carga_termica?.toFixed(0) || 'N/A'}%</span><br>
+                        <strong style="color: #10b981;">🎯 Potência CRAC:</strong> <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold;">${data.potencia_crac?.toFixed(2) || 'N/A'}%</span>
                     </div>
                 </div>
             `;
