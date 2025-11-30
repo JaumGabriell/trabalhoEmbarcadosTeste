@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Fuzzy - Controle de Refrigeração</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌡️ Sistema Fuzzy para Controle de Refrigeração</h1>
+            <p>Data Center - Controle Inteligente de Temperatura</p>
+        </header>
+
+        <nav class="nav-buttons">
+            <button onclick="window.location.href='/mqtt_dashboard'" class="btn btn-secondary">
+                📊 Dashboard MQTT
+            </button>
+        </nav>
+
+        <div class="main-content">
+            <!-- Painel de Entradas -->
+            <section class="card">
+                <h2>📥 Painel de Entradas</h2>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="erro">Erro de Temperatura (°C)</label>
+                        <input type="number" id="erro" value="0" step="0.1" min="-10" max="10">
+                        <span class="help-text">Erro = T_atual - T_setpoint (22°C)</span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="delta_erro">Variação do Erro (Δe)</label>
+                        <input type="number" id="delta_erro" value="0" step="0.1" min="-5" max="5">
+                        <span class="help-text">Δe = e(t) - e(t-1)</span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="temp_externa">Temperatura Externa (°C)</label>
+                        <input type="number" id="temp_externa" value="25" step="0.5" min="10" max="35">
+                        <span class="help-text">Faixa: 10-35°C</span>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="carga_termica">Carga Térmica (%)</label>
+                        <input type="number" id="carga_termica" value="40" step="1" min="0" max="100">
+                        <span class="help-text">Faixa: 0-100%</span>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="calculate()" class="btn btn-primary">🎯 Calcular Potência CRAC</button>
+                    <button onclick="resetInputs()" class="btn btn-secondary">🔄 Limpar</button>
+                </div>
+            </section>
+
+            <!-- Painel de Saída -->
+            <section class="card">
+                <h2>📤 Potência CRAC</h2>
+                <div class="output-display">
+                    <div class="output-value" id="output-value">--</div>
+                    <div class="output-label">% de Potência</div>
+                </div>
+                <div class="power-bar">
+                    <div class="power-bar-fill" id="power-bar-fill" style="width: 0%"></div>
+                </div>
+            </section>
+
+            <!-- Funções de Pertinência -->
+            <section class="card">
+                <h2>📊 Funções de Pertinência</h2>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="showTab('erro', event)">Erro</button>
+                    <button class="tab-btn" onclick="showTab('delta_erro', event)">Δ Erro</button>
+                    <button class="tab-btn" onclick="showTab('temp_externa', event)">Temp. Externa</button>
+                    <button class="tab-btn" onclick="showTab('carga_termica', event)">Carga Térmica</button>
+                    <button class="tab-btn" onclick="showTab('potencia_crac', event)">Potência CRAC</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="membershipChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Processo de Inferência -->
+            <section class="card">
+                <h2>⚙️ Processo de Inferência</h2>
+                <div id="inference-details">
+                    <p class="text-muted">Execute o cálculo para ver os detalhes da inferência</p>
+                </div>
+            </section>
+
+            <!-- Simulação 24h -->
+            <section class="card">
+                <h2>🕐 Simulação de 24 Horas</h2>
+                <div class="simulation-controls">
+                    <div class="input-group">
+                        <label>Temperatura Inicial (°C)</label>
+                        <input type="number" id="sim_temp_inicial" value="22" step="0.5">
+                    </div>
+                    <div class="input-group">
+                        <label>Temp. Externa Base (°C)</label>
+                        <input type="number" id="sim_temp_externa" value="25" step="0.5">
+                    </div>
+                    <div class="input-group">
+                        <label>Carga Base (%)</label>
+                        <input type="number" id="sim_carga_base" value="40" step="5">
+                    </div>
+                    <button onclick="runSimulation()" class="btn btn-primary">▶️ Executar Simulação</button>
+                </div>
+                <div id="simulation-results" style="display: none;">
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <div class="metric-value" id="metric-rmse">--</div>
+                            <div class="metric-label">RMSE</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="metric-range">--</div>
+                            <div class="metric-label">% Tempo em Faixa</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="metric-violations">--</div>
+                            <div class="metric-label">Violações</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="metric-energy">--</div>
+                            <div class="metric-label">Energia Total</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="simulationChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>Sistema Fuzzy para Controle de Refrigeração de Data Center | C213 - 2025</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>
