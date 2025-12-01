@@ -15,8 +15,8 @@ CORS(app)
 
 # Instâncias globais
 fuzzy_controller = FuzzyController()
-simulation = TemporalSimulation(fuzzy_controller)
 mqtt_client = MQTTClient()
+simulation = TemporalSimulation(fuzzy_controller, mqtt_client)
 
 # Estado global
 system_state = {
@@ -25,7 +25,10 @@ system_state = {
     'current_power': 50.0,
     'alerts': [],
     'mqtt_messages': [],
-    'message_count': 0
+    'message_count': 0,
+    'simulation_data': [],
+    'simulation_running': False,
+    'simulation_progress': 0
 }
 
 @app.route('/')
@@ -109,8 +112,14 @@ def get_membership_functions():
 
 @app.route('/api/simulation/start', methods=['POST'])
 def start_simulation():
-    """Inicia simulação de 24 horas"""
+    """Inicia simulação de 24 horas (envia dados apenas via MQTT)"""
     try:
+        if system_state['simulation_running']:
+            return jsonify({
+                'success': False,
+                'error': 'Já existe uma simulação em andamento'
+            }), 400
+        
         data = request.get_json()
         
         # Parâmetros da simulação
@@ -118,20 +127,59 @@ def start_simulation():
         temp_externa_base = float(data.get('temp_externa_base', 25.0))
         carga_base = float(data.get('carga_base', 40.0))
         
-        # Executa simulação
-        results = simulation.run_24h_simulation(
-            temp_inicial=temp_inicial,
-            temp_externa_base=temp_externa_base,
-            carga_base=carga_base
-        )
+        # Limpa dados da simulação anterior
+        system_state['simulation_data'] = []
+        system_state['simulation_running'] = True
+        system_state['simulation_progress'] = 0
         
-        # Calcula métricas
-        metrics = simulation.calculate_metrics(results)
+        # Executa simulação em thread separada
+        def run_simulation_thread():
+            try:
+                def update_progress(progress):
+                    system_state['simulation_progress'] = progress
+                
+                results = simulation.run_24h_simulation(
+                    temp_inicial=temp_inicial,
+                    temp_externa_base=temp_externa_base,
+                    carga_base=carga_base,
+                    progress_callback=update_progress
+                )
+                
+                # Calcula métricas
+                metrics = simulation.calculate_metrics(results)
+                
+                # Armazena dados completos para recuperação
+                system_state['simulation_data'] = {
+                    'results': results,
+                    'metrics': metrics,
+                    'completed': True
+                }
+                system_state['simulation_running'] = False
+                system_state['simulation_progress'] = 100
+                
+                # Publica métricas finais via MQTT
+                mqtt_client.publish_control_data({
+                    'type': 'simulation_complete',
+                    'metrics': metrics,
+                    'timestamp': time.time()
+                })
+                
+            except Exception as e:
+                print(f"Erro na simulação: {e}")
+                system_state['simulation_running'] = False
+                system_state['simulation_data'] = {
+                    'error': str(e),
+                    'completed': False
+                }
+        
+        # Inicia thread
+        thread = threading.Thread(target=run_simulation_thread)
+        thread.daemon = True
+        thread.start()
         
         return jsonify({
             'success': True,
-            'results': results,
-            'metrics': metrics
+            'message': 'Simulação iniciada. Acompanhe os dados via MQTT.'
         })
         
     except Exception as e:
@@ -139,6 +187,15 @@ def start_simulation():
             'success': False,
             'error': str(e)
         }), 400
+
+@app.route('/api/simulation/status', methods=['GET'])
+def simulation_status():
+    """Retorna status da simulação"""
+    return jsonify({
+        'running': system_state['simulation_running'],
+        'progress': system_state['simulation_progress'],
+        'data': system_state['simulation_data']
+    })
 
 @app.route('/api/rules', methods=['GET'])
 def get_rules():
@@ -177,6 +234,19 @@ def get_mqtt_messages():
     return jsonify({
         'messages': system_state['mqtt_messages'][-20:],  # Últimas 20 mensagens
         'total_count': system_state['message_count']
+    })
+
+@app.route('/api/simulation/messages', methods=['GET'])
+def get_simulation_messages():
+    """Retorna mensagens da simulação via MQTT"""
+    # Filtra apenas mensagens de simulação
+    simulation_messages = [
+        msg for msg in system_state['mqtt_messages'] 
+        if msg.get('data', {}).get('type') == 'simulation'
+    ]
+    return jsonify({
+        'messages': simulation_messages[-100:],  # Últimas 100 mensagens
+        'count': len(simulation_messages)
     })
 
 def check_alerts(temp, power):

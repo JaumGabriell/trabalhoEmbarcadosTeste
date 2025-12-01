@@ -131,6 +131,10 @@ function resetInputs() {
     document.getElementById('power-bar-fill').style.width = '0%';
 }
 
+// Variáveis para controle da simulação
+let simulationInterval = null;
+let simulationData = [];
+
 // Executa simulação de 24h
 async function runSimulation() {
     const temp_inicial = parseFloat(document.getElementById('sim_temp_inicial').value);
@@ -145,18 +149,25 @@ async function runSimulation() {
     document.getElementById('simulation-results').innerHTML = `
         <div style="text-align: center; padding: 40px;">
             <div class="loading"></div>
-            <h3 style="margin-top: 20px; color: #2196F3;">⏳ Simulando 1440 minutos (24 horas)...</h3>
-            <p style="color: #666;">Isso pode levar 20-30 segundos. Por favor, aguarde...</p>
-            <p style="color: #999; font-size: 0.9em;">🔍 Acompanhe o progresso no terminal do servidor</p>
+            <h3 style="margin-top: 20px; color: #2196F3;">⏳ Iniciando simulação de 24 horas...</h3>
+            <p style="color: #666;">Os dados estão sendo enviados via MQTT</p>
+            <div class="metric" style="margin-top: 20px;">
+                <div class="metric-value" id="simulation-progress">0%</div>
+                <div class="metric-label">Progresso</div>
+            </div>
+            <div class="metric" style="margin-top: 10px;">
+                <div class="metric-value" id="simulation-points">0</div>
+                <div class="metric-label">Pontos Recebidos</div>
+            </div>
         </div>
     `;
     document.getElementById('simulation-results').style.display = 'block';
     
     try {
-        // Aumenta o timeout para 60 segundos
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        // Limpa dados anteriores
+        simulationData = [];
         
+        // Inicia a simulação (não aguarda resultados)
         const response = await fetch('/api/simulation/start', {
             method: 'POST',
             headers: {
@@ -166,44 +177,88 @@ async function runSimulation() {
                 temp_inicial: temp_inicial,
                 temp_externa_base: temp_externa,
                 carga_base: carga_base
-            }),
-            signal: controller.signal
+            })
         });
-        
-        clearTimeout(timeoutId);
         
         const result = await response.json();
         
         if (result.success) {
-            displaySimulationResults(result.results, result.metrics);
+            // Inicia polling para receber dados via MQTT
+            startSimulationPolling();
         } else {
             document.getElementById('simulation-results').innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #f44336;">
-                    <h3>❌ Erro na simulação</h3>
+                    <h3>❌ Erro ao iniciar simulação</h3>
                     <p>${result.error}</p>
                 </div>
             `;
         }
     } catch (error) {
         console.error('Erro:', error);
-        if (error.name === 'AbortError') {
-            document.getElementById('simulation-results').innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #ff9800;">
-                    <h3>⏱️ Tempo esgotado</h3>
-                    <p>A simulação está demorando mais que o esperado.</p>
-                    <p>Verifique o console do navegador e o terminal do servidor.</p>
-                </div>
-            `;
-        } else {
-            document.getElementById('simulation-results').innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #f44336;">
-                    <h3>❌ Erro ao executar simulação</h3>
-                    <p>Verifique o console do navegador (F12) para mais detalhes.</p>
-                    <p style="font-size: 0.9em; color: #666;">Erro: ${error.message}</p>
-                </div>
-            `;
-        }
+        document.getElementById('simulation-results').innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #f44336;">
+                <h3>❌ Erro ao executar simulação</h3>
+                <p>Verifique o console do navegador (F12) para mais detalhes.</p>
+                <p style="font-size: 0.9em; color: #666;">Erro: ${error.message}</p>
+            </div>
+        `;
     }
+}
+
+// Polling para receber dados da simulação via MQTT
+async function startSimulationPolling() {
+    if (simulationInterval) {
+        clearInterval(simulationInterval);
+    }
+    
+    simulationInterval = setInterval(async () => {
+        try {
+            // Verifica status da simulação
+            const statusResponse = await fetch('/api/simulation/status');
+            const status = await statusResponse.json();
+            
+            // Atualiza progresso
+            const progressElement = document.getElementById('simulation-progress');
+            if (progressElement) {
+                progressElement.textContent = status.progress.toFixed(0) + '%';
+            }
+            
+            // Busca mensagens da simulação
+            const messagesResponse = await fetch('/api/simulation/messages');
+            const messagesResult = await messagesResponse.json();
+            
+            if (messagesResult.messages && messagesResult.messages.length > 0) {
+                // Atualiza dados da simulação
+                simulationData = messagesResult.messages.map(msg => msg.data);
+                
+                const pointsElement = document.getElementById('simulation-points');
+                if (pointsElement) {
+                    pointsElement.textContent = simulationData.length;
+                }
+            }
+            
+            // Se a simulação terminou
+            if (!status.running && status.data && status.data.completed) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                
+                // Exibe resultados
+                displaySimulationResults(status.data.results, status.data.metrics);
+            } else if (!status.running && status.data && status.data.error) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                
+                document.getElementById('simulation-results').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #f44336;">
+                        <h3>❌ Erro na simulação</h3>
+                        <p>${status.data.error}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Erro no polling:', error);
+        }
+    }, 1000); // Atualiza a cada 1 segundo
 }
 
 // Exibe resultados da simulação

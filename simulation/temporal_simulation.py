@@ -1,15 +1,18 @@
 import numpy as np
 from .physical_model import PhysicalModel
+from fuzzy_controler.fuzzy_engine import FuzzyController
+import time
 
 class TemporalSimulation:
     """Simulação temporal de 24 horas"""
     
-    def __init__(self, fuzzy_controller):
+    def __init__(self, fuzzy_controller: FuzzyController, mqtt_client=None):
         self.fuzzy = fuzzy_controller
         self.model = PhysicalModel()
         self.setpoint = 22.0
+        self.mqtt_client = mqtt_client
     
-    def run_24h_simulation(self, temp_inicial=22.0, temp_externa_base=25.0, carga_base=40.0):
+    def run_24h_simulation(self, temp_inicial=22.0, temp_externa_base=25.0, carga_base=40.0, progress_callback=None):
         """
         Executa simulação de 1440 minutos (24h)
         Otimizada para executar mais rápido
@@ -47,6 +50,8 @@ class TemporalSimulation:
             if i % (sim_points // 10 + 1) == 0:
                 progress = (t / minutes) * 100
                 print(f"   {progress:.0f}% completo")
+                if progress_callback:
+                    progress_callback(progress)
             
             # Temperatura externa (padrão senoidal + ruído)
             T_ext = temp_externa_base + 5 * np.sin(2 * np.pi * t / 1440) + np.random.normal(0, 0.5)
@@ -81,10 +86,33 @@ class TemporalSimulation:
             results['erro'].append(float(erro))
             results['setpoint'].append(self.setpoint)
             
+            # Envia dados via MQTT
+            self._publish_simulation_data(t, T_atual, P_crac, T_ext, Q_est, erro)
+            
             erro_anterior = erro
         
         print("✅ Simulação completa!")
         return results
+    
+    def _publish_simulation_data(self, time_min, temp, power, temp_ext, carga, erro):
+        """Publica dados da simulação via MQTT"""
+        if self.mqtt_client and self.mqtt_client.is_connected():
+            try:
+                simulation_data = {
+                    'type': 'simulation',
+                    'time_minutes': float(time_min),
+                    'temperature': float(temp),
+                    'power_crac': float(power),
+                    'temp_externa': float(temp_ext),
+                    'carga_termica': float(carga),
+                    'erro': float(erro),
+                    'setpoint': self.setpoint,
+                    'timestamp': time.time()
+                }
+                self.mqtt_client.publish_control_data(simulation_data)
+            except Exception as e:
+                # Não interrompe a simulação se MQTT falhar
+                pass
     
     def calculate_metrics(self, results):
         """Calcula métricas de desempenho"""
